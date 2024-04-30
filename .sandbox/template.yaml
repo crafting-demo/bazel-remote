@@ -1,10 +1,24 @@
 workspaces:
   - name: executor
+    port_forward_rules:
+      - local: '9092'
+        remote:
+          target: cache
+          port: grpc
     checkouts:
       - path: nativelink
+        repo:
+          # TODO update url
+          git: https://github.com/pigfall/crafting-bazel-remote-demo.git
+        # TODO update branch
+        version_spec: tzz/sandbox-template
         manifest:
           overlays:
             - content: |
+                daemons: 
+                  nativelink:
+                    run:
+                      cmd: nativelink executors/nativelink/config.json
                 hooks:
                   post-checkout:
                     cmd: |
@@ -16,6 +30,9 @@ workspaces:
 containers:
   - name: cache
     image: quay.io/bazel-remote/bazel-remote:v2.4.3
+    args:
+      - --max_size
+      - '5'
     ports:
       - name: grpc
         port: 9092
