@@ -19,4 +19,4 @@ containers:
     ports:
       - name: grpc
         port: 9092
-        protocol: GRPC
+        protocol: GRPC/TCP
