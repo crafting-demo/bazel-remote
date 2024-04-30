@@ -1,0 +1,25 @@
+workspaces:
+  - name: bazel-remote-executor
+    checkouts:
+      - path: bazel-remote-executor
+        repo:
+          # TODO update git url to https://github.com/crafting-demo/bazel-remote
+          git: https://github.com/pigfall/crafting-bazel-remote-demo.git
+        manifest:
+          overlays:
+            - content: |
+                hooks:
+                  post-checkout:
+                    cmd: |
+                            [[ -x /usr/local/bin/nativelink ]] || {
+                            # TODO update download url.
+                            sudo wget -O /usr/local/bin/nativelink https://github.com/pigfall/nativelink/releases/download/v0.3.0/nativelink
+                            sudo chmod a+rx /usr/local/bin/nativelink
+                            }
+containers:
+  - name: cache
+    image: quay.io/bazel-remote/bazel-remote:v2.4.3
+    ports:
+      - name: grpc
+        port: 9092
+        protocol: GRPC
