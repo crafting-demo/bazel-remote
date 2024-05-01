@@ -1,14 +1,14 @@
 workspaces:
   - name: executor
+    ports:
+      - name: grpc
+        port: 50051
+        protocol: GRPC/TCP
     port_forward_rules:
       - local: '9092'
         remote:
           target: cache
           port: grpc
-      - local: '+9093'
-        remote:
-          target: localhost 
-          port: '50051'
     checkouts:
       - path: nativelink
         repo:
