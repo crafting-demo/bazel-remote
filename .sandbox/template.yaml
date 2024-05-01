@@ -5,6 +5,10 @@ workspaces:
         remote:
           target: cache
           port: grpc
+      - local: '+9093'
+        remote:
+          target: localhost 
+          port: '50051'
     checkouts:
       - path: nativelink
         repo:
