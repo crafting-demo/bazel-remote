@@ -7,7 +7,7 @@ in a Crafting workspace and turns the workspace into a Bazel Remote Executor.
 ## Quick Start
 
 From Crafting WebConsole,
-create a new sandbox (assuming name `bre-demo`) from this git repository: `https://github.com/crafting-demo/bazel-remote`,
+create a new sandbox from this git repository: `https://github.com/crafting-demo/bazel-remote`,
 and wait until the sandbox is auto self-updated and then becoming ready.
 Find the connect instruction from the overview of the sandbox.
 
