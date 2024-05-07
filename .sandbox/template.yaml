@@ -12,7 +12,7 @@ workspaces:
       - local: '+9093'
         remote:
           target: executor
-          port: "50051"
+          port: grpc
     checkouts:
       - path: nativelink
         repo:
