@@ -20,10 +20,9 @@ jobs:
           RUSTTARGET: x86_64-unknown-linux-musl
           TOOLCHAIN_VERSION: 1.77
           UPLOAD_MODE: none
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: Binary
-          path: |
+          files: |
             ${{ steps.compile.outputs.BUILT_ARCHIVE }}
             ${{ steps.compile.outputs.BUILT_CHECKSUM }}
