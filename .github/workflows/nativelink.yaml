@@ -20,6 +20,8 @@ jobs:
           RUSTTARGET: x86_64-unknown-linux-musl
           TOOLCHAIN_VERSION: 1.77
           UPLOAD_MODE: none
+          ARCHIVE_TYPES: zip
+          ARCHIVE_NAME: nativelink
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
