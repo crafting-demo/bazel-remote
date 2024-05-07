@@ -1,0 +1,46 @@
+workspaces:
+  - name: executor
+    ports:
+      - name: grpc
+        port: 50051
+        protocol: GRPC/TCP
+    port_forward_rules:
+      - local: '9092'
+        remote:
+          target: cache
+          port: grpc
+      - local: '+9093'
+        remote:
+          target: executor
+          port: grpc
+    checkouts:
+      - path: nativelink
+        repo:
+          git: https://github.com/crafting-demo/bazel-remote.git
+        manifest:
+          overlays:
+            - content: |
+                daemons: 
+                  nativelink:
+                    run:
+                      cmd: nativelink executors/nativelink/config.json
+                hooks:
+                  post-checkout:
+                    cmd: |
+                            [[ -x /usr/local/bin/nativelink ]] || {
+                            # Note: make sure we have the v1.0.0 release to let the link is valid.
+                            sudo wget -O /usr/local/bin/nativelink.zip https://github.com/crafting-demo/bazel-remote/releases/download/v1.0.0/nativelink.zip
+                            sudo unzip /usr/local/bin/nativelink.zip
+                            sudo rm /usr/local/bin/nativelink.zip
+                            sudo chmod a+rx /usr/local/bin/nativelink
+                            }
+containers:
+  - name: cache
+    image: quay.io/bazel-remote/bazel-remote:v2.4.3
+    args:
+      - --max_size
+      - '5'
+    ports:
+      - name: grpc
+        port: 9092
+        protocol: GRPC/TCP
