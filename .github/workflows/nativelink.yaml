@@ -25,4 +25,3 @@ jobs:
         with:
           files: |
             ${{ steps.compile.outputs.BUILT_ARCHIVE }}
-            ${{ steps.compile.outputs.BUILT_CHECKSUM }}
