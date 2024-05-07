@@ -1,5 +1,23 @@
+overview: |
+  # Bazel Remote Executor
+  The workspace `bre` runs a lightweight Bazel Remote Executor using [nativelink](https://github.com/TraceMachina/nativelink).
+  Use the following command on your local machine to securely map this remote executor to be used by local:
+
+  ```sh
+  cs port-forward -W {{sandbox.name}}/bre
+  ```
+
+  Then from another terminal, run bazel like:
+
+  ```sh
+  bazel build ... --remote_executor=grpc://localhost:9093 --remote_instance_name=main --spawn_strategy=remote
+  ```
+
+env:
+- NATIVELINK_RELEASE=v0.3.0
+- NATIVELINK_DOWNLOAD_URL=https://github.com/crafting-demo/bazel-remote/releases/download/${NATIVELINK_RELEASE}/nativelink.tar.gz
 workspaces:
-  - name: executor
+  - name: bre
     ports:
       - name: grpc
         port: 50051
@@ -9,32 +27,29 @@ workspaces:
         remote:
           target: cache
           port: grpc
-      - local: '+9093'
+      - local: '9093'
         remote:
-          target: executor
+          target: bre
           port: grpc
     checkouts:
-      - path: nativelink
+      - path: bazel-remote
         repo:
           git: https://github.com/crafting-demo/bazel-remote.git
         manifest:
           overlays:
-            - content: |
+            - inline:
+                hooks:
+                  post-checkout:
+                    cmd: |
+                      [[ -x /usr/local/bin/nativelink ]] || curl -sSfL "$NATIVELINK_DOWNLOAD_URL" | sudo tar -C /usr/local/bin -zx nativelink
                 daemons: 
                   nativelink:
                     run:
                       cmd: nativelink executors/nativelink/config.json
-                hooks:
-                  post-checkout:
-                    cmd: |
-                            [[ -x /usr/local/bin/nativelink ]] || {
-                            # Note: make sure we have the v1.0.0 release to let the link is valid.
-                            sudo wget -O /usr/local/bin/nativelink.zip https://github.com/crafting-demo/bazel-remote/releases/download/v1.0.0/nativelink.zip
-                            sudo unzip /usr/local/bin/nativelink.zip
-                            sudo rm /usr/local/bin/nativelink.zip
-                            sudo chmod a+rx /usr/local/bin/nativelink
-                            }
+
 containers:
+  # This is for reference only as "nativelink" requires a bazel remote cache.
+  # Remove this and update the nativelink configuration to use your own remote cache.
   - name: cache
     image: quay.io/bazel-remote/bazel-remote:v2.4.3
     args:
