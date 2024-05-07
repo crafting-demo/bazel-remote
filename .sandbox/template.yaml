@@ -16,10 +16,7 @@ workspaces:
     checkouts:
       - path: nativelink
         repo:
-          # TODO update url
-          git: https://github.com/pigfall/crafting-bazel-remote-demo.git
-        # TODO update branch
-        version_spec: tzz/sandbox-template
+          git: https://github.com/crafting-demo/bazel-remote.git
         manifest:
           overlays:
             - content: |
@@ -31,8 +28,10 @@ workspaces:
                   post-checkout:
                     cmd: |
                             [[ -x /usr/local/bin/nativelink ]] || {
-                            # TODO update download url.
-                            sudo wget -O /usr/local/bin/nativelink https://github.com/pigfall/nativelink/releases/download/v0.3.0/nativelink
+                            # Note: make sure we have the v1.0.0 release to let the link is valid.
+                            sudo wget -O /usr/local/bin/nativelink.zip https://github.com/crafting-demo/bazel-remote/releases/download/v1.0.0/nativelink.zip
+                            sudo unzip /usr/local/bin/nativelink.zip
+                            sudo rm /usr/local/bin/nativelink.zip
                             sudo chmod a+rx /usr/local/bin/nativelink
                             }
 containers:
