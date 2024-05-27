@@ -22,7 +22,6 @@ jobs:
           UPLOAD_MODE: none
           ARCHIVE_TYPES: tar.gz
           ARCHIVE_NAME: nativelink
-          MINIFY: true
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
