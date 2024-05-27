@@ -12,16 +12,19 @@ jobs:
       - uses: actions/checkout@master
         with:
           repository: TraceMachina/nativelink
-          ref: v0.3.0
+          ref: v0.4.0
       - name: Compile
         id: compile
         uses: rust-build/rust-build.action@v1.4.5
+        env:
+          RUSTFLAGS: "--release"
         with:
           RUSTTARGET: x86_64-unknown-linux-musl
           TOOLCHAIN_VERSION: 1.77
           UPLOAD_MODE: none
           ARCHIVE_TYPES: tar.gz
           ARCHIVE_NAME: nativelink
+          RUSTFLAGS: 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
