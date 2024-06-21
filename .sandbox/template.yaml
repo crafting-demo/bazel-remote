@@ -14,7 +14,7 @@ overview: |
   ```
 
 env:
-- NATIVELINK_RELEASE=v0.3.0
+- NATIVELINK_RELEASE=v0.4.0
 - NATIVELINK_DOWNLOAD_URL=https://github.com/crafting-demo/bazel-remote/releases/download/${NATIVELINK_RELEASE}/nativelink.tar.gz
 workspaces:
   - name: bre
