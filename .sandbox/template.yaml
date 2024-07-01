@@ -4,7 +4,7 @@ overview: |
   Use the following command on your local machine to securely map this remote executor to be used by local:
 
   ```sh
-  cs port-forward -W {{sandbox.name}}/bre
+  cs port-forward -W {{sandbox.name}}/executor
   ```
 
   Then from another terminal, run bazel like:
@@ -13,15 +13,8 @@ overview: |
   bazel build ... --remote_executor=grpc://localhost:9093 --remote_instance_name=main --spawn_strategy=remote
   ```
 
-env:
-- NATIVELINK_RELEASE=v0.4.0
-- NATIVELINK_DOWNLOAD_URL=https://github.com/crafting-demo/bazel-remote/releases/download/${NATIVELINK_RELEASE}/nativelink.tar.gz
 workspaces:
-  - name: bre
-    ports:
-      - name: grpc
-        port: 50051
-        protocol: GRPC/TCP
+  - name: executor
     port_forward_rules:
       - local: '9092'
         remote:
@@ -29,24 +22,15 @@ workspaces:
           port: grpc
       - local: '9093'
         remote:
-          target: bre
-          port: grpc
+          target: localhost
+          port: '50051'
     checkouts:
       - path: bazel-remote
         repo:
           git: https://github.com/crafting-demo/bazel-remote.git
         manifest:
           overlays:
-            - inline:
-                hooks:
-                  post-checkout:
-                    cmd: |
-                      [[ -x /usr/local/bin/nativelink ]] || curl -sSfL "$NATIVELINK_DOWNLOAD_URL" | sudo tar -C /usr/local/bin -zx nativelink
-                daemons: 
-                  nativelink:
-                    run:
-                      cmd: nativelink executors/nativelink/config.json
-
+            - file: .sandbox/default.yaml
 containers:
   # This is for reference only as "nativelink" requires a bazel remote cache.
   # Remove this and update the nativelink configuration to use your own remote cache.

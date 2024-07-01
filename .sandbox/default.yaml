@@ -1,0 +1,10 @@
+hooks:
+  post-checkout:
+    cmd: |
+      : ${NATIVELINK_RELEASE:=v0.4.0}
+      : ${NATIVELINK_DOWNLOAD_URL:=https://github.com/crafting-demo/bazel-remote/releases/download/${NATIVELINK_RELEASE}/nativelink.tar.gz}
+      [[ -x /usr/local/bin/nativelink ]] || curl -sSfL "$NATIVELINK_DOWNLOAD_URL" | sudo tar -C /usr/local/bin -zx nativelink
+daemons: 
+  nativelink:
+    run:
+      cmd: nativelink executors/nativelink/config.json
