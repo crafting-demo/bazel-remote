@@ -1,0 +1,181 @@
+diff --git a/nativelink-store/src/grpc_store.rs b/nativelink-store/src/grpc_store.rs
+index ed3cd68..1e31310 100644
+--- a/nativelink-store/src/grpc_store.rs
++++ b/nativelink-store/src/grpc_store.rs
+@@ -302,7 +302,7 @@ impl GrpcStore {
+ 
+         let result = self
+             .retrier
+-            .retry(unfold(local_state, move |local_state| async move {
++            .retry(unfold(local_state.clone(), move |local_state| async move {
+                 // The client write may occur on a separate thread and
+                 // therefore in order to share the state with it we have to
+                 // wrap it in a Mutex and retrieve it after the write
+@@ -345,6 +345,18 @@ impl GrpcStore {
+                 Some((result, local_state))
+             }))
+             .await?;
++
++        // Some remote-cache server will directly return response if the resource has exists. E.g.:  https://github.com/buchgr/bazel-remote/blob/0727bf77dca5aea922ba7309893e7104895715c5/server/grpc_bytestream.go#L421
++        // In this situation, we mark the `cancel_writed` as true to tell the sender do not need to send data any more.
++        let mut local_state_locked = local_state.lock();
++        if !local_state_locked.read_stream.write_finished
++            && local_state_locked.read_stream.expected_size
++                == result.get_ref().committed_size as usize
++        {
++            if let Some(cancel_writed) = &mut local_state_locked.read_stream.cancel_writed {
++                cancel_writed.store(true, std::sync::atomic::Ordering::Release);
++            }
++        }
+         Ok(result)
+     }
+ 
+@@ -558,6 +570,8 @@ impl Store for GrpcStore {
+             return self.update_action_result_from_bytes(digest, reader).await;
+         }
+ 
++        let cancel_writed = reader.cancel_send.clone();
++
+         let mut buf = Uuid::encode_buffer();
+         let resource_name = format!(
+             "{}/uploads/{}/blobs/{}/{}",
+@@ -615,13 +629,13 @@ impl Store for GrpcStore {
+             ))
+         }));
+ 
+-        self.write(
+-            WriteRequestStreamWrapper::from(stream)
+-                .await
+-                .err_tip(|| "in GrpcStore::update()")?,
+-        )
+-        .await
+-        .err_tip(|| "in GrpcStore::update()")?;
++        let mut write_stream = WriteRequestStreamWrapper::from(stream)
++            .await
++            .err_tip(|| "in GrpcStore::update()")?;
++        write_stream.cancel_writed = Some(cancel_writed);
++        self.write(write_stream)
++            .await
++            .err_tip(|| "in GrpcStore::update()")?;
+ 
+         Ok(())
+     }
+diff --git a/nativelink-util/src/buf_channel.rs b/nativelink-util/src/buf_channel.rs
+index 0880a55..24f87c0 100644
+--- a/nativelink-util/src/buf_channel.rs
++++ b/nativelink-util/src/buf_channel.rs
+@@ -39,16 +39,19 @@ pub fn make_buf_channel_pair() -> (DropCloserWriteHalf, DropCloserReadHalf) {
+     // thread is pumping large amounts of data into the channel.
+     let (tx, rx) = mpsc::channel(2);
+     let eof_sent = Arc::new(AtomicBool::new(false));
++    let cancel_send = Arc::new(AtomicBool::new(false));
+     (
+         DropCloserWriteHalf {
+             tx: Some(tx),
+             bytes_written: 0,
+             eof_sent: eof_sent.clone(),
++            cancel_send:cancel_send.clone(),
+         },
+         DropCloserReadHalf {
+             rx,
+             queued_data: VecDeque::new(),
+             eof_sent,
++            cancel_send:cancel_send,
+             bytes_received: 0,
+             recent_data: Vec::new(),
+             max_recent_data_size: 0,
+@@ -61,6 +64,7 @@ pub struct DropCloserWriteHalf {
+     tx: Option<mpsc::Sender<Result<Bytes, Error>>>,
+     bytes_written: u64,
+     eof_sent: Arc<AtomicBool>,
++    pub cancel_send: Arc<AtomicBool>,
+ }
+ 
+ impl DropCloserWriteHalf {
+@@ -169,6 +173,7 @@ pub struct DropCloserReadHalf {
+     /// Number of bytes received over the stream.
+     bytes_received: u64,
+     eof_sent: Arc<AtomicBool>,
++    pub cancel_send:Arc<AtomicBool>,
+     /// If not empty, this is the data that needs to be sent out before
+     /// data from the underlying channel can should be sent.
+     queued_data: VecDeque<Result<Bytes, Error>>,
+diff --git a/nativelink-util/src/proto_stream_utils.rs b/nativelink-util/src/proto_stream_utils.rs
+index 57cf864..fb21bc3 100644
+--- a/nativelink-util/src/proto_stream_utils.rs
++++ b/nativelink-util/src/proto_stream_utils.rs
+@@ -37,7 +37,8 @@ where
+     pub bytes_received: usize,
+     stream: T,
+     first_msg: Option<WriteRequest>,
+-    write_finished: bool,
++    pub write_finished: bool,
++    pub cancel_writed: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>
+ }
+ 
+ impl<T, E> WriteRequestStreamWrapper<T, E>
+@@ -72,6 +73,7 @@ where
+             stream,
+             first_msg: Some(first_msg),
+             write_finished: false,
++            cancel_writed:None,
+         })
+     }
+ 
+@@ -184,7 +186,7 @@ where
+ {
+     instance_name: String,
+     read_stream_error: Option<Error>,
+-    read_stream: WriteRequestStreamWrapper<T, E>,
++    pub read_stream: WriteRequestStreamWrapper<T, E>,
+     // Tonic doesn't appear to report an error until it has taken two messages,
+     // therefore we are required to buffer the last two messages.
+     cached_messages: [Option<WriteRequest>; 2],
+diff --git a/nativelink-util/src/store_trait.rs b/nativelink-util/src/store_trait.rs
+index b399dfb..b9b6603 100644
+--- a/nativelink-util/src/store_trait.rs
++++ b/nativelink-util/src/store_trait.rs
+@@ -87,13 +87,14 @@ pub async fn slow_update_store_with_file<S: Store + ?Sized>(
+         .await
+         .err_tip(|| "Failed to rewind in upload_file_to_store")?;
+     let (tx, rx) = make_buf_channel_pair();
++    let cancel_sent = tx.cancel_send.clone();
+ 
+     let mut update_fut = store
+         .update(digest, rx, upload_size)
+         .map(|r| r.err_tip(|| "Could not upload data to store in upload_file_to_store"));
+     let read_result = {
+         let read_data_fut = async {
+-            let (_, mut tx) = file
++            let result = file
+                 .read_buf_cb(
+                     (BytesMut::with_capacity(fs::DEFAULT_READ_BUFF_SIZE), tx),
+                     move |(chunk, mut tx)| async move {
+@@ -104,9 +105,24 @@ pub async fn slow_update_store_with_file<S: Store + ?Sized>(
+                     },
+                 )
+                 .await
+-                .err_tip(|| "Error in upload_file_to_store::read_buf_cb section")?;
+-            tx.send_eof()
+-                .err_tip(|| "Could not send EOF to store in upload_file_to_store")?;
++                .err_tip(|| "Error in upload_file_to_store::read_buf_cb section");
++            if let Err(err) = result{
++                // The error is caused by receiver actively close its channel, we just return and do not send any more data.
++                if cancel_sent.load(std::sync::atomic::Ordering::Acquire){
++                    return Ok(());
++                }
++                return Err(err);
++            }
++            let (_,mut tx) = result.unwrap();
++            let result = tx.send_eof()
++                .err_tip(|| "Could not send EOF to store in upload_file_to_store");
++            if let Err(err) = result{
++                // The error is caused by receiver actively close its channel, we just return and do not send any more data.
++                if cancel_sent.load(std::sync::atomic::Ordering::Relaxed){
++                    return Ok(());
++                }
++                return Err(err);
++            }
+             Ok(())
+         };
+         tokio::pin!(read_data_fut);
