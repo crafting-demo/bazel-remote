@@ -10,11 +10,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@master
+      - uses: actions/checkout@master
         with:
           repository: TraceMachina/nativelink
           ref: v0.4.0
       - name: Patch nativelink
-        run: git apply ${{ github.action_path }}/nativelink-patch/nativelink_v_0_4_0.patch
+        run: git apply ../bazel-remote/nativelink-patch/nativelink_v_0_4_0.patch
         shell: bash
       - name: Compile
         id: compile
