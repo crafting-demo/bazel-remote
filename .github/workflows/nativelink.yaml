@@ -14,7 +14,7 @@ jobs:
           repository: TraceMachina/nativelink
           ref: v0.4.0
       - name: Patch nativelink
-        run: git patch ${{ github.action_path }}/nativelink-patch/nativelink_v_0_4_0.patch
+        run: git apply ${{ github.action_path }}/nativelink-patch/nativelink_v_0_4_0.patch
       - name: Compile
         id: compile
         uses: rust-build/rust-build.action@v1.4.5
