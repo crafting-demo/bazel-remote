@@ -20,12 +20,6 @@ jobs:
       - name: Patch nativelink
         run: cd nativelink && git apply ../main/nativelink-patch/nativelink_v_0_4_0.patch
         shell: bash
-      - name: Patch nativelink
-        run: ls
-        shell: bash
-      - name: Patch nativelink
-        run: echo $(pwd)
-        shell: bash
       - name: Compile
         id: compile
         uses: rust-build/rust-build.action@v1.4.5
