@@ -23,6 +23,9 @@ jobs:
       - name: Patch nativelink
         run: ls
         shell: bash
+      - name: Patch nativelink
+        run: pwd
+        shell: bash
       - name: Compile
         id: compile
         uses: rust-build/rust-build.action@v1.4.5
