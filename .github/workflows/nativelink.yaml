@@ -13,19 +13,17 @@ jobs:
         with:
           repository: TraceMachina/nativelink
           ref: v0.4.0
-      - name: Patch nativelink
-        run: echo $(pwd)
-        shell: bash
+          path: nativelink
       - uses: actions/checkout@master
+        with:
+          path: main
       - name: Patch nativelink
-        run: echo $(pwd)
-        shell: bash
-      - name: Patch nativelink
-        run: git apply ../bazel-remote/nativelink-patch/nativelink_v_0_4_0.patch
+        run: cd nativelink && git apply ../main/nativelink-patch/nativelink_v_0_4_0.patch
         shell: bash
       - name: Compile
         id: compile
         uses: rust-build/rust-build.action@v1.4.5
+        working-directory: nativelink
         with:
           RUSTTARGET: x86_64-unknown-linux-musl
           TOOLCHAIN_VERSION: 1.77
